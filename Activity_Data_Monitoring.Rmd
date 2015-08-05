@@ -80,9 +80,59 @@ From the original dataset, a large number of NA values are present.
 length(is.na(activity$steps))
 ```
 
-Since the NA values are linked to interval numbers and should not be dropped. Values are imputed from the average value of that interval.
+Since the NA values are linked to interval numbers and should not be dropped. Values are imputed from the rounded average value of that interval.
 
 ```{r}
 
+activity_imp <- activity
+
+for (i in 1:nrow(activity_imp)){
+  
+  steps <- activity_imp[i,1]
+  
+  if (is.na(steps)){
+    
+    int <- as.numeric(activity_imp[i,3])
+    
+      avg <- filter(steps_int, interval==int)
+    
+      activity_imp[i,1] <- round(avg$average_steps)
+    
+    } else steps
+  
+}
+
 ```
+
+The imputed dataset is grouped by the date, then dplyr package is used to generate a summary table showing the sum, mean and median for each day.
+
+```{r}
+activity_imp <- group_by(activity_imp, date)
+
+activity_imp_summary <- summarise(activity_imp, sum(steps), mean(steps), median(steps))
+
+Total.Steps <- 1:nrow(activity_imp_summary)
+Freq <- activity_imp_summary$`sum(steps)`
+myhist_i <-list(breaks=Total.Steps, counts=Freq, xname="Total Steps per Day (incl imputed NA values)")
+class(myhist_i) <- "histogram"
+plot(myhist_i, col = "blue")
+
+library(knitr)
+
+kable(activity_imp_summary)
+```
+
+To compare the estimate omitting NAs with one imputing the NAs, summaries are generated.
+
+```{r}
+
+summary(activity_summary)
+
+summary(activity_imp_summary)
+
+```
+
+From the summaries, it is clear that imputing NA values has little impact to the mean value since the imputation was referencing the mean values. However it would affect the median since many of the imputed NAs have non-zero values.
+
+## Activity pattern between weekdays and weekends
 
