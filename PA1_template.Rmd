@@ -8,18 +8,172 @@ output:
 
 ## Loading and preprocessing the data
 
+The following code is used to load the dataset located in the working directory in form of CSV. Data not available are omitted from the dataset.
 
+```{r}
+  activity <- read.csv("activity.csv")
+  
+```
+
+The date are read in by lubridate package.
+
+```{r}
+  library(lubridate)
+
+  activity$date <- ymd(activity$date)
+```
 
 ## What is mean total number of steps taken per day?
 
+The dataset is grouped by the date, then dplyr package is used to generate a summary table showing the sum, mean and median for each day.
 
+After omitting the NA values, a histogram is plotted showing the frequency of steps taken each day.
+
+```{r}
+library(dplyr)
+
+activity <- group_by(activity, date)
+activity_nona <- na.omit(activity)
+
+activity_summary <- summarise(activity_nona, sum(steps), mean(steps), median(steps))
+
+Total.Steps <- 1:nrow(activity_summary)
+Freq <- activity_summary$`sum(steps)`
+myhist <-list(breaks=Total.Steps, counts=Freq, xname="Total Steps per Day")
+class(myhist) <- "histogram"
+plot(myhist, col = "pink")
+
+library(knitr)
+
+kable(activity_summary)
+
+```
 
 ## What is the average daily activity pattern?
 
+The mean step taken for each interval is aggregated and collected into a table. The aggregated table is then plotted.
 
+```{r}
+
+steps_int <- aggregate(activity_nona$steps, list(interval = activity_nona$interval), mean)
+names(steps_int) [2] <- "average_steps"
+
+plot(steps_int$interval, steps_int$average_steps, type = "l", xlab = "Time Interval", ylab = "Average Steps")
+title(main = "Average steps throughout the day")
+
+```
+
+The interval with the maximun average steps is found by filtering the aggregated table.
+
+```{r}
+max_int <- filter(steps_int, average_steps == max(average_steps))
+
+max_int$interval
+```
+
+From the result, the interval with the most step count is `r max_int$interval`.
 
 ## Imputing missing values
 
+From the original dataset, a large number of NA values are present.
 
+```{r}
+length(is.na(activity$steps))
+```
+
+Since the NA values are linked to interval numbers and should not be dropped. Values are imputed from the rounded average value of that interval.
+
+```{r}
+
+activity_imp <- activity
+
+for (i in 1:nrow(activity_imp)){
+  
+  steps <- activity_imp[i,1]
+  
+  if (is.na(steps)){
+    
+    int <- as.numeric(activity_imp[i,3])
+    
+      avg <- filter(steps_int, interval==int)
+    
+      activity_imp[i,1] <- round(avg$average_steps)
+    
+    } else steps
+  
+}
+
+```
+
+The imputed dataset is grouped by the date, then dplyr package is used to generate a summary table showing the sum, mean and median for each day.
+
+```{r}
+activity_imp <- group_by(activity_imp, date)
+
+activity_imp_summary <- summarise(activity_imp, sum(steps), mean(steps), median(steps))
+
+Total.Steps <- 1:nrow(activity_imp_summary)
+Freq <- activity_imp_summary$`sum(steps)`
+myhist_i <-list(breaks=Total.Steps, counts=Freq, xname="Total Steps per Day (incl imputed NA values)")
+class(myhist_i) <- "histogram"
+plot(myhist_i, col = "blue")
+
+library(knitr)
+
+kable(activity_imp_summary)
+```
+
+To compare the estimate omitting NAs with one imputing the NAs, summaries are generated.
+
+```{r}
+
+summary(activity_summary)
+
+summary(activity_imp_summary)
+
+```
+
+From the summaries, it is clear that imputing NA values has little impact to the mean value since the imputation was referencing the mean values. However it would affect the median since many of the imputed NAs have non-zero values.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+A new variable weekday is generated from the date, to indicate whether the said day is a weekday or falls on weekend.
+
+```{r}
+
+wday <- c(2:6)
+
+activity_imp <- mutate(activity_imp, weekday = wday(date))
+
+suppressWarnings(activity_imp$weekday <- sapply(activity_imp$weekday, function(x){if (x == wday) as.factor("weekday") else as.factor("weekend")}))
+
+```
+
+The imputed dataset is subsetted into a weekday and a weekend set.
+
+```{r}
+
+activity_wd <- filter(activity_imp, weekday=="weekday")
+  activity_wd <- aggregate(activity_wd$steps, list(interval = activity_wd$interval), mean)
+    names(activity_wd) [2] <- "average_steps"
+
+activity_we <- filter(activity_imp, weekday=="weekend")
+  activity_we <- aggregate(activity_we$steps, list(interval = activity_we$interval), mean)
+    names(activity_we) [2] <- "average_steps"
+
+activity_wd <- mutate(activity_wd, weekday = "weekday")
+activity_we <- mutate(activity_we, weekday = "weekend")
+activity_w <- rbind(activity_wd, activity_we)
+```
+
+The activity pattern is plotted to compare between weekdays and weekends.
+
+```{r}
+
+library(lattice)
+
+xyplot(average_steps~interval|weekday, data = activity_w, type="l", xlab="Interval", ylab="Number of steps", layout=c(1,2))
+    
+```
+
+Comparing the patterns, it appears that the activity differs quite a lot. Apart from the peak of activity, a different pattern interms of the number of steps for a peak as well as the time such peak appears, most noticibly in the middle intervals of the graphs.

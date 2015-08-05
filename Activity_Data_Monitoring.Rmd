@@ -136,3 +136,43 @@ From the summaries, it is clear that imputing NA values has little impact to the
 
 ## Activity pattern between weekdays and weekends
 
+A new variable weekday is generated from the date, to indicate whether the said day is a weekday or falls on weekend.
+
+```{r}
+
+wday <- c(2:6)
+
+activity_imp <- mutate(activity_imp, weekday = wday(date))
+
+suppressWarnings(activity_imp$weekday <- sapply(activity_imp$weekday, function(x){if (x == wday) as.factor("weekday") else as.factor("weekend")}))
+
+```
+
+The imputed dataset is subsetted into a weekday and a weekend set.
+
+```{r}
+
+activity_wd <- filter(activity_imp, weekday=="weekday")
+  activity_wd <- aggregate(activity_wd$steps, list(interval = activity_wd$interval), mean)
+    names(activity_wd) [2] <- "average_steps"
+
+activity_we <- filter(activity_imp, weekday=="weekend")
+  activity_we <- aggregate(activity_we$steps, list(interval = activity_we$interval), mean)
+    names(activity_we) [2] <- "average_steps"
+
+activity_wd <- mutate(activity_wd, weekday = "weekday")
+activity_we <- mutate(activity_we, weekday = "weekend")
+activity_w <- rbind(activity_wd, activity_we)
+```
+
+The activity pattern is plotted to compare between weekdays and weekends.
+
+```{r}
+
+library(lattice)
+
+xyplot(average_steps~interval|weekday, data = activity_w, type="l", xlab="Interval", ylab="Number of steps", layout=c(1,2))
+    
+```
+
+Comparing the patterns, it appears that the activity differs quite a lot. Apart from the peak of activity, a different pattern interms of the number of steps for a peak as well as the time such peak appears, most noticibly in the middle intervals of the graphs.
